@@ -1,6 +1,6 @@
 import torch.nn.functional as F
 from torch import nn
-from transformers import AutoModel
+from transformers import AutoModel, BertModel
 
 from configuration import Configuration
 
@@ -8,7 +8,7 @@ from configuration import Configuration
 class PuncRec(nn.Module):
     def __init__(self, config: Configuration):
         super().__init__()
-        self.bert = AutoModel.from_pretrained(config.flavor)
+        self.bert = BertModel.from_pretrained(config.flavor)
         size = 768
         self.punc = nn.Linear(size, len(config.punctuation_names.keys()))
         self.dropout = nn.Dropout(0.3)

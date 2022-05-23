@@ -9,7 +9,7 @@ class Configuration:
         self.punctuation_names = punctuation_names
         self.punctuation_encoding = punctuation_encoding
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.flavor = 'bert-base-multilingual-uncased'
+        self.flavor = 'models/tatbert/'
         self.segment_size = segment_size
         self.save_path = 'models/{}/'.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
         os.mkdir(self.save_path)
