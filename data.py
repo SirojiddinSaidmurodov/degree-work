@@ -81,7 +81,7 @@ def stats_for_cleaning(files_list):
     return dict(sorted(symbols.items(), key=lambda item: item[1], reverse=True))
 
 
-def encode_data(data, tokenizer, punctuation_enc):
+def encode_data(data, tokenizer, punctuation_enc: dict):
     """
     Converts words to (BERT) tokens and puntuation to given encoding.
     Note that words can be composed of multiple tokens.
@@ -89,15 +89,17 @@ def encode_data(data, tokenizer, punctuation_enc):
     X = []
     Y = []
     print('Tokenizing')
+    punc_signs_count = len(punctuation_enc.keys())
     for line in tqdm(data, total=len(data)):
         word, punc = line.split('\t')
         punc = punc.strip()
         tokens = tokenizer.tokenize(word)
         x = tokenizer.convert_tokens_to_ids(tokens)
-        y = [punctuation_enc[punc]]
+        y = [0] * punc_signs_count
+        y[punctuation_enc[punc]] = 1
         if len(x) > 0:
             if len(x) > 1:
-                y = (len(x) - 1) * [0] + y
+                y = (len(x) - 1) * [[1, 0, 0]] + y
             X += x
             Y += y
     return X, Y
