@@ -99,7 +99,8 @@ def encode_data(data, tokenizer, punctuation_enc: dict):
         y[punctuation_enc[punc]] = 1
         if len(x) > 0:
             if len(x) > 1:
-                y = (len(x) - 1) * [[1, 0, 0]] + y
+                out = (len(x) - 1) * [[1, 0, 0]]
+                out.append(y)
             X += x
             Y += y
     return X, Y
