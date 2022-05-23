@@ -157,7 +157,7 @@ if __name__ == '__main__':
     puncRec = nn.DataParallel(PuncRec(config).to(config.device))
 
     data_loader_train = create_data_loader(X_train, y_train, True, 1024)
-    data_loader_valid = create_data_loader(X_test, y_test, False, 1024)
+    data_loader_valid = create_data_loader(X_test, y_test, False, 128)
     for p in puncRec.module.bert.parameters():
         p.requires_grad = False
     optim = optim.Adam(puncRec.parameters(), lr=1e-5)

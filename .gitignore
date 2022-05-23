@@ -2,3 +2,5 @@
 /Reference files
 ~$*
 /data/
+/venv/
+/.idea/

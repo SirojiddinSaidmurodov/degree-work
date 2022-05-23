@@ -1,3 +1,4 @@
+import io
 import os
 import random
 
@@ -33,14 +34,14 @@ def files_train_test_split(input_files_list: list, test_size):
 
 def load_file(filename):
     result = ''
-    with open(filename, 'r') as f:
+    with io.open(filename, encoding='utf-8') as f:
         for line in f:
             result += line
     return result
 
 
 def load_data(filename):
-    with open(filename, 'r') as f:
+    with open(filename, 'r', encoding='utf-8') as f:
         result = f.readlines()
     return result
 
@@ -57,7 +58,7 @@ def get_array_of_words(files_list):
 
 
 def markup_and_save_data(words, out_file, punctuation_signs: dict):
-    with open(out_file, 'w') as out:
+    with open(out_file, mode='w', encoding='utf-8') as out:
         print("Writing " + out_file)
         for word in tqdm(words, total=len(words)):
             if word[-1] in punctuation_signs.keys():
@@ -89,18 +90,17 @@ def encode_data(data, tokenizer, punctuation_enc: dict):
     X = []
     Y = []
     print('Tokenizing')
-    punc_signs_count = len(punctuation_enc.keys())
     for line in tqdm(data, total=len(data)):
         word, punc = line.split('\t')
         punc = punc.strip()
         tokens = tokenizer.tokenize(word)
         x = tokenizer.convert_tokens_to_ids(tokens)
-        y = [0] * punc_signs_count
+        y = [0] * 3
         y[punctuation_enc[punc]] = 1
+        y = [y]
         if len(x) > 0:
             if len(x) > 1:
-                out = (len(x) - 1) * [[1, 0, 0]]
-                out.append(y)
+                y = (len(x) - 1) * [[1, 0, 0]] + y
             X += x
             Y += y
     return X, Y
