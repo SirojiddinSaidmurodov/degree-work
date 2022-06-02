@@ -37,4 +37,4 @@ if __name__ == '__main__':
     loss = nn.CrossEntropyLoss()
     puncRec, optimizer, best_val_loss = train(puncRec, optim, loss, config, data_loader_train, data_loader_valid,
                                               best_val_loss=1e9)
-    visualize_results(config)
+    visualize_results(config.save_path, save_file=True)

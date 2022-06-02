@@ -1,15 +1,13 @@
 import matplotlib.pyplot as plt
 from pandas import read_csv
 
-from configuration import Configuration
 
-
-def visualize_results(config: Configuration):
-    df = read_csv(config.save_path + '/progress.csv', sep=';')
+def visualize_results(path, save_file: bool):
+    df = read_csv(path + '/progress.csv', sep=';')
     t = range(len(df['time']))
     with plt.style.context('Solarize_Light2'):
         fig = plt.figure()
-        fig.set_size_inches(10, 6)
+        fig.set_size_inches(12, 6)
         ax1 = fig.add_subplot(111)
         plt.grid(False)
         ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
@@ -36,5 +34,11 @@ def visualize_results(config: Configuration):
                    borderaxespad=0.)
 
         fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        if save_file:
+            plt.savefig(path + '/progress_visualization.png')
+        else:
+            plt.show()
 
-        plt.savefig(config.save_path + '/progress_visualization.png')
+
+if __name__ == '__main__':
+    visualize_results('models/20220601_201550', False)
