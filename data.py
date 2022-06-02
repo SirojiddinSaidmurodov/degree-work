@@ -1,6 +1,7 @@
 import io
 import os
 import random
+from typing import List
 
 import numpy as np
 import torch
@@ -17,7 +18,12 @@ def get_files_size(files):
 
 
 def files_train_test_split(input_files_list: list, test_size):
-    """Splits files into train and test sets by bytes size"""
+    """
+    Splits files into train and test sets by bytes size
+    :param input_files_list: list of paths ot files
+    :param test_size: test dataset ratio
+    :return: dict of lists, train and test
+    """
     files_list = input_files_list.copy()
 
     total_size = get_files_size(files_list)
@@ -32,7 +38,11 @@ def files_train_test_split(input_files_list: list, test_size):
     return {"train": files_list, "test": test_files}
 
 
-def load_file(filename):
+def load_file(filename) -> str:
+    """
+    :param filename: path to file
+    :return: string with content of file
+    """
     result = ''
     with io.open(filename, encoding='utf-8') as f:
         for line in f:
@@ -40,7 +50,12 @@ def load_file(filename):
     return result
 
 
-def load_data(filename):
+def load_data(filename) -> List[str]:
+    """
+
+    :param filename: path to file
+    :return: list of string from file
+    """
     with open(filename, 'r', encoding='utf-8') as f:
         result = f.readlines()
     return result
@@ -135,6 +150,12 @@ def create_data_loader(X, y, shuffle, batch_size):
     return data_loader
 
 
+def split_train_test(smoke_data, test_size):
+    test = smoke_data[:int(-len(smoke_data) * test_size)]
+    train = smoke_data[:int(len(smoke_data) * test_size)]
+    return train, test
+
+
 if __name__ == '__main__':
     random.seed(1)
     files = os.listdir('./data/raw')
@@ -151,3 +172,7 @@ if __name__ == '__main__':
     punctuation = {',': "COMMA", '.': "PERIOD", ' ': '0'}
     markup_and_save_data(get_array_of_words(dataset['train']), './data/train.tsv', punctuation)
     markup_and_save_data(get_array_of_words(dataset['test']), './data/test.tsv', punctuation)
+
+    smoke_train_data, smoke_test_data = split_train_test(get_array_of_words(['data/raw/2_88_1_0.doc.txt']), 0.3)
+    markup_and_save_data(smoke_train_data, './data/smoke/train.tsv', punctuation)
+    markup_and_save_data(smoke_test_data, './data/smoke/test.tsv', punctuation)
