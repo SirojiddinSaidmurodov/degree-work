@@ -1,5 +1,8 @@
+import multiprocessing
+
+import torch
+from tokenizers.implementations import BertWordPieceTokenizer
 from torch import nn, optim
-from transformers import BertTokenizer
 
 import data
 from configuration import Configuration
@@ -8,6 +11,7 @@ from model import PuncRec
 from train_funcs import train
 
 if __name__ == '__main__':
+    torch.set_num_threads(multiprocessing.cpu_count())
     punctuation = {',': 'COMMA', '.': 'PERIOD', ' ': '0'}
     encoding = {'0': 0, 'PERIOD': 1, 'COMMA': 2}
 
@@ -16,8 +20,7 @@ if __name__ == '__main__':
                            segment_size=32,
                            epochs=5,
                            iterations=2)
-
-    tokenizer = BertTokenizer.from_pretrained(config.flavor, do_lower_case=True)
+    tokenizer = BertWordPieceTokenizer(config.flavor + '/vocab.txt', lowercase=True)
     train_data = data.load_data('./data/train.tsv')
     test_data = data.load_data('./data/test.tsv')
     X_train, y_train = data.preprocess_data(train_data, tokenizer, encoding, config.segment_size)

@@ -1,4 +1,5 @@
 import io
+import multiprocessing
 import os
 import random
 from typing import List
@@ -108,8 +109,9 @@ def encode_data(data, tokenizer, punctuation_enc: dict):
     for line in tqdm(data, total=len(data)):
         word, punc = line.split('\t')
         punc = punc.strip()
-        tokens = tokenizer.tokenize(word)
-        x = tokenizer.convert_tokens_to_ids(tokens)
+        # tokens = tokenizer.tokenize(word)
+        # x = tokenizer.convert_tokens_to_ids(tokens)
+        x = tokenizer.encode(word).ids
         y = [0] * 3
         y[punctuation_enc[punc]] = 1
         y = [y]
@@ -146,7 +148,7 @@ def preprocess_data(data, tokenizer, punctuation_enc, segment_size):
 
 def create_data_loader(X, y, shuffle, batch_size):
     data_set = TensorDataset(torch.from_numpy(X).long(), torch.from_numpy(np.array(y)).long())
-    data_loader = DataLoader(data_set, batch_size=batch_size, shuffle=shuffle)
+    data_loader = DataLoader(data_set, batch_size=batch_size, shuffle=shuffle, num_workers=multiprocessing.cpu_count())
     return data_loader
 
 
