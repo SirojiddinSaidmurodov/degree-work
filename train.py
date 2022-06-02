@@ -9,6 +9,7 @@ from configuration import Configuration
 from data import create_data_loader
 from model import PuncRec
 from train_funcs import train
+from visualize import visualize_results
 
 if __name__ == '__main__':
     torch.set_num_threads(multiprocessing.cpu_count())
@@ -36,3 +37,4 @@ if __name__ == '__main__':
     loss = nn.CrossEntropyLoss()
     puncRec, optimizer, best_val_loss = train(puncRec, optim, loss, config, data_loader_train, data_loader_valid,
                                               best_val_loss=1e9)
+    visualize_results(config)
