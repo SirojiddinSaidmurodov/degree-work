@@ -3,9 +3,25 @@ from datetime import datetime
 
 import torch
 
+punctuation = {',': 'COMMA', '.': 'PERIOD', ' ': '0'}
+encoding = {'0': 0, 'PERIOD': 1, 'COMMA': 2}
+
 
 class Configuration:
-    def __init__(self, punctuation_names: dict, punctuation_encoding: dict, segment_size: int, epochs=5, iterations=2):
+    def __init__(self, punctuation_names=None, punctuation_encoding=None, segment_size: int = 32,
+                 epochs=5, iterations=2, smoke_run=False):
+        if punctuation_encoding is None:
+            punctuation_encoding = encoding
+        if punctuation_names is None:
+            punctuation_names = punctuation
+
+        if smoke_run:
+            self.train_path = './data/smoke/train.tsv'
+            self.test_path = './data/smoke/test.tsv'
+        else:
+            self.train_path = './data/train.tsv'
+            self.test_path = './data/test.tsv'
+
         self.punctuation_names = punctuation_names
         self.punctuation_encoding = punctuation_encoding
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -15,3 +31,5 @@ class Configuration:
         os.mkdir(self.save_path)
         self.epochs = epochs
         self.iterations = iterations
+
+#       TODO: add presets (test_run, prod_run)

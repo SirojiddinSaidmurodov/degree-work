@@ -7,7 +7,7 @@ def visualize_results(path, save_file: bool):
     t = range(len(df['time']))
     with plt.style.context('Solarize_Light2'):
         fig = plt.figure()
-        fig.set_size_inches(12, 6)
+        fig.set_size_inches(12, 6)  # TODO: set figure sizes according length of log
         ax1 = fig.add_subplot(111)
         plt.grid(False)
         ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
