@@ -10,7 +10,7 @@ from configuration import Configuration
 
 
 def validate(model, criterion, configuration: Configuration, epoch, iteration, data_loader_valid,
-             train_loss, best_val_loss, best_model_path):
+             trainLoss, best_val_loss, best_model_path, top_learning=False):
     val_losses = []
     val_accs = []
     val_f1s = []
@@ -54,25 +54,39 @@ def validate(model, criterion, configuration: Configuration, epoch, iteration, d
     f1_vals = ';'.join(['{:.4f}'.format(val) for val in val_f1])
 
     with open(progress_path, 'a') as f:
-        f.write('{};{};{};{:.4f};{:.4f};{:.4f};{}\n'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), epoch + 1,
-                                                            iteration, train_loss, val_loss, val_acc, f1_vals))
+        f.write('{};{};{};{:.4f};{:.4f};{:.4f};{}\n'.format(
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            epoch + 1,
+            iteration,
+            trainLoss,
+            val_loss,
+            val_acc,
+            f1_vals
+        ))
 
-    print("Epoch: {}/{}".format(epoch + 1, configuration.epochs),
-          "Iteration: {}/{}".format(iteration, configuration.iterations),
-          "Loss: {:.4f}".format(train_loss), "Val Loss: {:.4f}".format(val_loss), "Acc: {:.4f}".format(val_acc),
-          "F1: {}".format(f1_vals), improved)
+    print("Epoch: {}/{}".format(epoch + 1, configuration.top_epochs if top_learning else configuration.all_epochs),
+          "Iteration: {}/{}".format(iteration,
+                                    configuration.top_iterations if top_learning else configuration.all_epochs),
+          "Loss: {:.4f}".format(trainLoss),
+          "Val Loss: {:.4f}".format(val_loss),
+          "Acc: {:.4f}".format(val_acc),
+          "F1: {}".format(f1_vals),
+          improved)
 
     return best_val_loss, best_model_path
 
 
 def train(model, optimizer, criterion, configuration: Configuration, data_loader_train, data_loader_valid,
-          best_val_loss=1e9):
-    print_every = len(data_loader_train) // configuration.iterations + 1
+          best_val_loss=1e9, top_learning=False):
+    epochs = configuration.top_epochs if top_learning else configuration.all_epochs
+    iterations = configuration.top_iterations if top_learning else configuration.all_epochs
+
+    print_every = len(data_loader_train) // iterations + 1
     best_model_path = None
     model.train()
     pbar = tqdm(total=print_every)
 
-    for e in range(configuration.epochs):
+    for e in range(epochs):
 
         counter = 1
         iteration = 1
@@ -96,7 +110,7 @@ def train(model, optimizer, criterion, configuration: Configuration, data_loader
                 model.eval()
                 best_val_loss, best_model_path = validate(model, criterion, configuration, e, iteration,
                                                           data_loader_valid, train_loss, best_val_loss,
-                                                          best_model_path)
+                                                          best_model_path, top_learning=top_learning)
                 model.train()
                 pbar = tqdm(total=print_every)
                 iteration += 1
@@ -106,9 +120,10 @@ def train(model, optimizer, criterion, configuration: Configuration, data_loader
         pbar.close()
         model.eval()
         best_val_loss, best_model_path = validate(model, criterion, configuration, e, iteration,
-                                                  data_loader_valid, train_loss, best_val_loss, best_model_path)
+                                                  data_loader_valid, train_loss, best_val_loss, best_model_path,
+                                                  top_learning=top_learning)
         model.train()
-        if e < configuration.epochs - 1:
+        if e < epochs - 1:
             pbar = tqdm(total=print_every)
 
     model.load_state_dict(torch.load(best_model_path))

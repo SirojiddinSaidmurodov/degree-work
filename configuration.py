@@ -9,7 +9,7 @@ encoding = {'0': 0, 'PERIOD': 1, 'COMMA': 2}
 
 class Configuration:
     def __init__(self, punctuation_names=None, punctuation_encoding=None, segment_size: int = 32,
-                 epochs=5, iterations=2, smoke_run=False):
+                 top_epochs=5, top_iterations=2, all_epochs=2, all_iterations=2, smoke_run=False):
         if punctuation_encoding is None:
             punctuation_encoding = encoding
         if punctuation_names is None:
@@ -29,7 +29,9 @@ class Configuration:
         self.segment_size = segment_size
         self.save_path = 'models/{}/'.format(datetime.now().strftime("%Y%m%d_%H%M%S"))
         os.mkdir(self.save_path)
-        self.epochs = epochs
-        self.iterations = iterations
+        self.top_epochs = top_epochs
+        self.top_iterations = top_iterations
+        self.all_epochs = all_epochs
+        self.all_iterations = all_iterations
 
 #       TODO: add presets (test_run, prod_run)
