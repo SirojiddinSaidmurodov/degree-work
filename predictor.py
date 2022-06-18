@@ -1,20 +1,90 @@
-from functools import partial
 import json
 import re
-from pkg_resources import resource_filename
+import string
+from functools import partial
+from typing import List, Pattern, Optional
+
 import torch
+from pkg_resources import resource_filename
+from tokenizers.implementations import BertWordPieceTokenizer
 from torch import nn
 from tqdm import tqdm
-from transformers import AutoTokenizer
 
 from configuration import Configuration
 from data import preprocess_data, create_data_loader
-from make_datasets import tokenize, make_labeling
-
 from model import PuncRec
 
+config = Configuration()
+
+punctuation_enc = config.punctuation_encoding
 
 inv_punctuation_enc = {v: k for k, v in punctuation_enc.items()}
+
+TOKEN_RE = re.compile(r'-?\d*\.\d+|[a-zа-яё]+|-?\d+|\S', re.I)
+
+
+def tokenize_text_simple_regex(txt: str, regex: Pattern, min_token_size: int = 0) -> List[str]:
+    """Tokenize text with simple regex
+    Args:
+        txt: text to tokenize
+        regex: re.compile output
+        min_token_size: min char length to highlight as token
+    Returns:
+        tokens list
+    """
+
+    txt = txt.lower()
+    all_tokens = regex.findall(txt)
+    return [token for token in all_tokens if len(token) >= min_token_size]
+
+
+def tokenize(corpus: List[str]) -> List[List[str]]:
+    """Tokenize text corpus with simple regex
+    Args:
+        corpus: text corpus
+    Returns:
+        List of tokenized texts
+    """
+    tokenized_corpus = []
+    for doc in corpus:
+        tokenized_corpus.append(tokenize_text_simple_regex(doc, TOKEN_RE))
+
+    return tokenized_corpus
+
+
+def make_labeling(tokenized_corpus: List[List[str]], save_path: Optional[str] = None) -> List[List[str]]:
+    """
+    Make labeling to correspond BertPunc input data https://github.com/IsaacChanghau/neural_sequence_labeling/tree/master/data/raw/LREC
+    Args:
+        tokenized_corpus: tokenized text corpus
+        save_path: path to save labeling result
+    Returns:
+        labeled tokenized text corpus
+    """
+    labeled_tokens = []
+    for text_tokenized in tokenized_corpus:
+        text_tokenized.append("")
+        for i in range(len(text_tokenized) - 1):
+            if text_tokenized[i] in string.punctuation:
+                if text_tokenized[i + 1] == ".":
+                    labeled_tokens[-1][1] = "PERIOD"
+                elif text_tokenized[i + 1] == ",":
+                    labeled_tokens[-1][1] = "COMMA"
+                else:
+                    continue
+            else:
+                if text_tokenized[i + 1] == ".":
+                    labeled_tokens.append([text_tokenized[i], "PERIOD"])
+                elif text_tokenized[i + 1] == ",":
+                    labeled_tokens.append([text_tokenized[i], "COMMA"])
+                else:
+                    labeled_tokens.append([text_tokenized[i], "0"])
+    if save_path is not None:
+        with open(save_path, "w") as f:
+            for token, label in labeled_tokens:
+                f.write(f"{token}\t{label}\n")
+
+    return labeled_tokens
 
 
 def predictions(data_loader, bert_punc, device):
@@ -24,18 +94,9 @@ def predictions(data_loader, bert_punc, device):
         with torch.no_grad():
             inputs, labels = inputs.to(device), labels.to(device)
             output = bert_punc(inputs)
-            y_pred += list(output.argmax(dim=1).cpu().data.numpy().flatten())
+            y_pred += list(output.softmax(dim=2).argmax(dim=2).cpu().data.numpy().flatten())
             y_true += list(labels.cpu().data.numpy().flatten())
     return y_pred, y_true
-
-
-def decode_gt(labeled_tokens: list, labels_mapper: dict):
-    result = []
-    for item in labeled_tokens:
-        token, label = item.split("\t")
-        token, label = token.strip(), label.strip()
-        result.append(token + labels_mapper[label])
-    return result
 
 
 def right_decode_predictions(data_test, predictions, tokenizer, punctuation_enc, segment_size):
@@ -137,26 +198,25 @@ def cnt_punct(s):
     return count
 
 
-def model_and_tokenizer_initialize(device, hyperparameters: dict):
+def model_and_tokenizer_initialize(hyperparameters: dict):
     model_name = hyperparameters['model']['name_or_path']
 
-    config = Configuration()
-    output_size = len(punctuation_enc)
+    output_size = len(config.punctuation_encoding)
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, do_lower_case=False)
+    tokenizer = BertWordPieceTokenizer(config.flavor + '/vocab.txt', lowercase=True)
     puncRec = nn.DataParallel(PuncRec(config).to(config.device))
 
-    bert_punc.load_state_dict(torch.load(get_path_to_checkpoint(), map_location=device))
+    puncRec.load_state_dict(torch.load(get_path_to_checkpoint(), map_location=config.device), strict=False)
 
-    bert_punc.eval()
+    puncRec.eval()
 
-    return bert_punc, tokenizer
+    return puncRec, tokenizer
 
 
-def inference(input_text: str, bert_punc, tokenizer, device, hyperparameters: dict, batch_size: int = 2048):
+def inference(input_text: str, bert_punc, tokenizer, hyperparameters: dict, batch_size: int = 2048):
     input_text = input_text.strip()
 
-    func_to_pred = partial(predictions, bert_punc=bert_punc, device=device)
+    func_to_pred = partial(predictions, bert_punc=bert_punc, device=config.device)
 
     prepared_domain_text, y_pred_domain = make_single_text_pred(input_text,
                                                                 func_to_pred,
@@ -164,8 +224,9 @@ def inference(input_text: str, bert_punc, tokenizer, device, hyperparameters: di
                                                                 batch_size,
                                                                 tokenizer,
                                                                 punctuation_enc,
-                                                                device
+                                                                config.device
                                                                 )
+    print(y_pred_domain)
 
     res = right_decode_predictions(prepared_domain_text, y_pred_domain,
                                    tokenizer,
@@ -179,7 +240,7 @@ def inference(input_text: str, bert_punc, tokenizer, device, hyperparameters: di
 
 
 def prepare_hyperparameters():
-    path = "checkpoints/echomsk6000/20210430_125222_rubert-base-cased-sentence_segment_size_16_stacked_hidden_states_concat_4_mean_sent_agg/hyperparameters.json"
+    path = "models/release-candidate/hyperparameters.json"
     path = resource_filename(__name__, path)
     with open(path, 'r') as f:
         hyperparameters = json.load(f)
@@ -188,7 +249,7 @@ def prepare_hyperparameters():
 
 
 def get_path_to_checkpoint():
-    path = "checkpoints/echomsk6000/20210430_125222_rubert-base-cased-sentence_segment_size_16_stacked_hidden_states_concat_4_mean_sent_agg/model"
+    path = "models/release-candidate/model"
     path = resource_filename(__name__, path)
     return path
 
@@ -196,24 +257,21 @@ def get_path_to_checkpoint():
 if __name__ == '__main__':
     BATCH_SIZE = 64
 
-    gpus_list = [2]
-
     hyperparameters = prepare_hyperparameters()
 
-    bert_punc, tokenizer = model_and_tokenizer_initialize(device, hyperparameters)
+    puncRec, tokenizer = model_and_tokenizer_initialize(hyperparameters)
 
-    input_text = "они ухнуты известно куда отчасти эта система выгодна и для производителей кино потому что она " \
-                 "позволяет им не заботиться о кассовых сборах потому что все деньги зарабатываются на этапе " \
-                 "выделения финансирования и так далее но болезнь зашла к сожалению так далеко что взять просто и " \
-                 "перевести всех на подножный корм или на самофинансирование это значит просто все убить это надо " \
-                 "медленномедленно лечить хвост по частям и наверное я бы начал это лечение с формирования просто " \
-                 "нескольких профессиональных советов из уважаемых в своей профессиональной сфере людей которые бы не " \
-                 "контролировали репертуар а с которыми бы советовались принимая решение о том или ином " \
-                 "госфинансировании то есть разделить это единое туловище минкульта на несколько таких корпоративных " \
-                 "профессиональных гильдий"
+    input_text = "аның фикеренчә физик культураны һәм спортны популярлаштыруда волонтерларның роле зур хәзер " \
+                 "татарстаннан бик күп волонтер сочига олимпиадага барырга әзерләнә очрашуда татарстанда волонтерлык " \
+                 "хәрәкәтенең оешып җиткәнлеге күп тапкыр әйтелде республикада яшьләр турында закон кабул ителде анда " \
+                 "иреклеләр хәрәкәтенә (добровольчество) ярдәм итү турында статья бар хәзер республикада 803 " \
+                 "иреклеләр оешмасы эшли быел бездә 14-30 яшьтәге волонтерларның саны 19 мең кешегә арткан һәм 49 мең " \
+                 "булган очрашуда катнашучылар фикеренчә волонтерлык эшчәнлеген кызыксындыру системасын киңәйтү " \
+                 "турында уйларга кирәк дәүләт бүләге яки аерым бер билге стимул була ала дип саный тр иреклеләр " \
+                 "хәрәкәте үсеше үзәге директоры анна синеглазова "
 
     print(input_text)
 
-    punc_case_restored_text = inference(input_text, bert_punc, tokenizer, device, hyperparameters, BATCH_SIZE)
+    punc_case_restored_text = inference(input_text, puncRec, tokenizer, hyperparameters, BATCH_SIZE)
 
     print(punc_case_restored_text)
